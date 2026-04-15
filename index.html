@@ -591,6 +591,7 @@
 
 <script>
 const STORAGE_KEY = 'rbcPoolSheetUrl';
+const DEFAULT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRHd7oCrxE_K88bu4u1R-UQhiO817sKgyD-XZFckBMKfd_MfNy_vAk3bHcyYQyJo700NbEBwbEWraXn/pub?gid=424819909&single=true&output=csv';
 const REFRESH_INTERVAL = 60;
 
 let sheetUrl = '';
@@ -599,7 +600,7 @@ let timer = null;
 let countdownTimer = null;
 
 function init() {
-  const saved = localStorage.getItem(STORAGE_KEY);
+  const saved = localStorage.getItem(STORAGE_KEY) || DEFAULT_SHEET_URL;
   if (saved) {
     sheetUrl = saved;
     document.getElementById('sheetUrl').value = saved;
