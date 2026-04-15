@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RBC Heritage Pool · Live Leaderboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --rbc-blue:   #003087;
+    --rbc-gold:   #C8A951;
+    --rbc-dark:   #0a0f1e;
+    --rbc-card:   #111827;
+    --rbc-border: rgba(200,169,81,0.2);
+    --rbc-muted:  rgba(255,255,255,0.45);
+    --rbc-sub:    rgba(255,255,255,0.25);
+    --gold-glow:  rgba(200,169,81,0.15);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--rbc-dark);
+    color: #fff;
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Animated background ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 50% at 10% 20%, rgba(0,48,135,0.35) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 90% 80%, rgba(200,169,81,0.12) 0%, transparent 55%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Header ── */
+  header {
+    position: relative;
+    z-index: 1;
+    padding: 2rem 1.5rem 1.5rem;
+    border-bottom: 1px solid var(--rbc-border);
+    background: linear-gradient(to bottom, rgba(0,48,135,0.25), transparent);
+  }
+
+  .header-inner {
+    max-width: 680px;
+    margin: 0 auto;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .tournament-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    color: var(--rbc-gold);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(28px, 7vw, 44px);
+    letter-spacing: 0.04em;
+    line-height: 1;
+    color: #fff;
+  }
+
+  h1 span { color: var(--rbc-gold); }
+
+  .header-meta {
+    font-size: 12px;
+    color: var(--rbc-muted);
+    margin-top: 6px;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .header-meta strong { color: rgba(255,255,255,0.75); }
+
+  .live-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(200,169,81,0.12);
+    border: 1px solid rgba(200,169,81,0.3);
+    border-radius: 999px;
+    padding: 5px 12px;
+    font-size: 11px;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.08em;
+    color: var(--rbc-gold);
+    white-space: nowrap;
+    flex-shrink: 0;
+    align-self: flex-start;
+    margin-top: 4px;
+  }
+
+  .live-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--rbc-gold);
+    animation: pulse 1.6s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.7); }
+  }
+
+  /* ── Stats bar ── */
+  .stats-bar {
+    position: relative;
+    z-index: 1;
+    max-width: 680px;
+    margin: 1.25rem auto;
+    padding: 0 1.5rem;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+
+  .stat-card {
+    background: var(--rbc-card);
+    border: 1px solid var(--rbc-border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    text-align: center;
+  }
+
+  .stat-label {
+    font-size: 10px;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--rbc-sub);
+    margin-bottom: 4px;
+  }
+
+  .stat-value {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 24px;
+    letter-spacing: 0.05em;
+    color: var(--rbc-gold);
+  }
+
+  /* ── Leaderboard ── */
+  .leaderboard {
+    position: relative;
+    z-index: 1;
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 0 1.5rem 6rem;
+  }
+
+  .section-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--rbc-sub);
+    margin-bottom: 12px;
+  }
+
+  .entry {
+    background: var(--rbc-card);
+    border: 1px solid var(--rbc-border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 8px;
+    display: grid;
+    grid-template-columns: 36px 1fr auto;
+    gap: 0 14px;
+    align-items: center;
+    transition: border-color 0.2s, background 0.2s;
+    cursor: default;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .entry:hover {
+    border-color: rgba(200,169,81,0.4);
+    background: #151f32;
+  }
+
+  /* Gold shimmer on leader */
+  .entry.rank-1 {
+    border-color: rgba(200,169,81,0.5);
+    background: linear-gradient(135deg, #151f32 0%, rgba(200,169,81,0.07) 100%);
+  }
+
+  .entry.rank-1::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--rbc-gold);
+    border-radius: 12px 0 0 12px;
+  }
+
+  .entry.rank-2::before, .entry.rank-3::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: rgba(200,169,81,0.4);
+    border-radius: 12px 0 0 12px;
+  }
+
+  /* Rank badge */
+  .rank {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    letter-spacing: 0.03em;
+    background: rgba(255,255,255,0.05);
+    color: var(--rbc-muted);
+  }
+
+  .rank.top1 { background: rgba(200,169,81,0.2); color: var(--rbc-gold); }
+  .rank.top2 { background: rgba(200,169,81,0.12); color: rgba(200,169,81,0.75); }
+  .rank.top3 { background: rgba(200,169,81,0.08); color: rgba(200,169,81,0.55); }
+
+  /* Participant info */
+  .info { min-width: 0; }
+
+  .participant-name {
+    font-size: 15px;
+    font-weight: 500;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 4px;
+  }
+
+  .picks-row {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+  }
+
+  .pick-chip {
+    font-size: 10px;
+    font-family: 'DM Mono', monospace;
+    color: var(--rbc-sub);
+    background: rgba(255,255,255,0.05);
+    border-radius: 4px;
+    padding: 2px 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 90px;
+  }
+
+  /* Score area */
+  .score-area { text-align: right; }
+
+  .total-score {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    color: #fff;
+  }
+
+  .entry.rank-1 .total-score { color: var(--rbc-gold); }
+
+  .round-scores {
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+    margin-top: 4px;
+  }
+
+  .round-pill {
+    font-size: 10px;
+    font-family: 'DM Mono', monospace;
+    color: var(--rbc-sub);
+    background: rgba(255,255,255,0.05);
+    border-radius: 4px;
+    padding: 2px 5px;
+    min-width: 22px;
+    text-align: center;
+  }
+
+  .round-pill.has-score {
+    color: rgba(255,255,255,0.65);
+    background: rgba(255,255,255,0.08);
+  }
+
+  /* ── Loading / empty state ── */
+  .state-panel {
+    text-align: center;
+    padding: 3rem 1.5rem;
+    color: var(--rbc-muted);
+  }
+
+  .state-panel .icon {
+    font-size: 36px;
+    margin-bottom: 12px;
+    opacity: 0.6;
+  }
+
+  .state-panel p { font-size: 14px; line-height: 1.6; max-width: 300px; margin: 0 auto; }
+  .state-panel .hint { font-size: 12px; color: var(--rbc-sub); margin-top: 8px; }
+
+  /* Skeleton loader */
+  .skeleton {
+    background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 8px;
+    height: 14px;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  .skeleton-entry {
+    background: var(--rbc-card);
+    border: 1px solid var(--rbc-border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 8px;
+    display: grid;
+    grid-template-columns: 36px 1fr auto;
+    gap: 14px;
+    align-items: center;
+  }
+
+  /* ── Setup panel ── */
+  .setup-panel {
+    position: relative;
+    z-index: 1;
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+  }
+
+  .setup-card {
+    background: var(--rbc-card);
+    border: 1px solid var(--rbc-border);
+    border-radius: 14px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .setup-card h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 0.05em;
+    color: var(--rbc-gold);
+    margin-bottom: 10px;
+  }
+
+  .setup-card p {
+    font-size: 13px;
+    color: var(--rbc-muted);
+    line-height: 1.6;
+    margin-bottom: 14px;
+  }
+
+  .setup-card ol {
+    font-size: 13px;
+    color: var(--rbc-muted);
+    line-height: 1.8;
+    padding-left: 18px;
+    margin-bottom: 16px;
+  }
+
+  .setup-card ol li { margin-bottom: 4px; }
+  .setup-card ol li code {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 4px;
+    padding: 1px 5px;
+    color: rgba(255,255,255,0.8);
+  }
+
+  .url-input-wrap {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .url-input-wrap input {
+    flex: 1;
+    min-width: 200px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: #fff;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .url-input-wrap input:focus { border-color: var(--rbc-gold); }
+  .url-input-wrap input::placeholder { color: var(--rbc-sub); }
+
+  .btn-load {
+    background: var(--rbc-gold);
+    color: var(--rbc-dark);
+    border: none;
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+    white-space: nowrap;
+  }
+
+  .btn-load:hover { opacity: 0.88; }
+
+  .error-msg {
+    margin-top: 10px;
+    font-size: 12px;
+    color: #f87171;
+    display: none;
+  }
+
+  /* ── Footer ── */
+  footer {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    z-index: 10;
+    background: linear-gradient(to top, var(--rbc-dark) 60%, transparent);
+    padding: 1.5rem 1.5rem 1rem;
+    display: flex;
+    justify-content: center;
+  }
+
+  .refresh-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--rbc-card);
+    border: 1px solid var(--rbc-border);
+    border-radius: 999px;
+    padding: 8px 16px;
+    font-size: 12px;
+    color: var(--rbc-muted);
+    max-width: 340px;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .refresh-bar button {
+    background: none;
+    border: none;
+    color: var(--rbc-gold);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 0;
+    margin-left: auto;
+  }
+
+  .refresh-bar button:hover { text-decoration: underline; }
+
+  #countdown {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--rbc-sub);
+    min-width: 28px;
+  }
+
+  /* ── Animations ── */
+  .entry { animation: fadeUp 0.3s ease both; }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* stagger */
+  .entry:nth-child(1)  { animation-delay: 0.00s; }
+  .entry:nth-child(2)  { animation-delay: 0.03s; }
+  .entry:nth-child(3)  { animation-delay: 0.06s; }
+  .entry:nth-child(4)  { animation-delay: 0.09s; }
+  .entry:nth-child(5)  { animation-delay: 0.12s; }
+  .entry:nth-child(6)  { animation-delay: 0.15s; }
+  .entry:nth-child(7)  { animation-delay: 0.18s; }
+  .entry:nth-child(8)  { animation-delay: 0.21s; }
+  .entry:nth-child(9)  { animation-delay: 0.24s; }
+  .entry:nth-child(10) { animation-delay: 0.27s; }
+
+  /* ── Responsive ── */
+  @media (max-width: 420px) {
+    .picks-row { display: none; }
+    .pick-chip  { display: none; }
+    header { padding: 1.25rem 1rem 1rem; }
+    .leaderboard, .setup-panel, .stats-bar { padding-left: 1rem; padding-right: 1rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div>
+      <div class="tournament-label">2026 · Hilton Head Island, SC</div>
+      <h1>RBC Heritage<br><span>Pool</span></h1>
+      <div class="header-meta">
+        <span><strong>Harbour Town Golf Links</strong></span>
+        <span>Apr 16 – 19</span>
+        <span>Par 71</span>
+      </div>
+    </div>
+    <div class="live-badge">
+      <div class="live-dot"></div>
+      LIVE
+    </div>
+  </div>
+</header>
+
+<div class="stats-bar" id="statsBar" style="display:none;">
+  <div class="stat-card">
+    <div class="stat-label">Entries</div>
+    <div class="stat-value" id="statEntries">–</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Leader</div>
+    <div class="stat-value" id="statScore">–</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Pot</div>
+    <div class="stat-value" id="statPot">–</div>
+  </div>
+</div>
+
+<!-- Setup panel (shown until URL is configured) -->
+<div class="setup-panel" id="setupPanel">
+  <div class="setup-card">
+    <h2>Connect Your Sheet</h2>
+    <p>Paste your Google Sheet's published CSV URL below to stream live leaderboard data into this dashboard.</p>
+    <ol>
+      <li>In your Google Sheet, click <strong>File → Share → Publish to web</strong></li>
+      <li>Under <em>Link</em>, choose the <code>Leaderboard</code> sheet and <code>Comma-separated values (.csv)</code></li>
+      <li>Click <strong>Publish</strong> and copy the URL</li>
+      <li>Paste it below and click Load</li>
+    </ol>
+    <div class="url-input-wrap">
+      <input type="text" id="sheetUrl" placeholder="https://docs.google.com/spreadsheets/d/.../pub?...output=csv" autocomplete="off" />
+      <button class="btn-load" onclick="saveAndLoad()">Load →</button>
+    </div>
+    <div class="error-msg" id="errorMsg"></div>
+  </div>
+  <div class="setup-card" style="border-style: dashed; opacity: 0.6;">
+    <h2>Share This Page</h2>
+    <p>Once connected, bookmark this page and share the URL with your pool participants. The leaderboard auto-refreshes every 60 seconds — no login required.</p>
+  </div>
+</div>
+
+<!-- Leaderboard (shown after URL is set) -->
+<div class="leaderboard" id="leaderboard" style="display:none;">
+  <div class="section-title" id="lastUpdated">Loading…</div>
+  <div id="entries"></div>
+</div>
+
+<footer>
+  <div class="refresh-bar" id="refreshBar" style="display:none;">
+    <div class="live-dot"></div>
+    <span>Auto-refresh</span>
+    <span id="countdown">60s</span>
+    <button onclick="loadData(true)">Refresh now</button>
+  </div>
+</footer>
+
+<script>
+const STORAGE_KEY = 'rbcPoolSheetUrl';
+const REFRESH_INTERVAL = 60;
+
+let sheetUrl = '';
+let countdown = REFRESH_INTERVAL;
+let timer = null;
+let countdownTimer = null;
+
+function init() {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved) {
+    sheetUrl = saved;
+    document.getElementById('sheetUrl').value = saved;
+    showLeaderboard();
+    loadData(false);
+  }
+}
+
+function saveAndLoad() {
+  const input = document.getElementById('sheetUrl').value.trim();
+  if (!input || !input.includes('docs.google.com')) {
+    showError('Please paste a valid Google Sheets published CSV URL.');
+    return;
+  }
+  sheetUrl = input;
+  localStorage.setItem(STORAGE_KEY, sheetUrl);
+  hideError();
+  showLeaderboard();
+  loadData(false);
+}
+
+function showLeaderboard() {
+  document.getElementById('setupPanel').style.display = 'none';
+  document.getElementById('leaderboard').style.display = 'block';
+  document.getElementById('statsBar').style.display = 'grid';
+  document.getElementById('refreshBar').style.display = 'flex';
+  startCountdown();
+}
+
+function showError(msg) {
+  const el = document.getElementById('errorMsg');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function hideError() {
+  document.getElementById('errorMsg').style.display = 'none';
+}
+
+function startCountdown() {
+  clearInterval(countdownTimer);
+  countdown = REFRESH_INTERVAL;
+  countdownTimer = setInterval(() => {
+    countdown--;
+    document.getElementById('countdown').textContent = countdown + 's';
+    if (countdown <= 0) {
+      loadData(false);
+      countdown = REFRESH_INTERVAL;
+    }
+  }, 1000);
+}
+
+async function loadData(manual) {
+  if (!sheetUrl) return;
+  if (manual) { countdown = REFRESH_INTERVAL; }
+
+  const entries = document.getElementById('entries');
+
+  // Show skeletons if no data yet
+  if (entries.children.length === 0) {
+    entries.innerHTML = [1,2,3,4,5].map(() => `
+      <div class="skeleton-entry">
+        <div class="skeleton" style="width:36px;height:36px;border-radius:8px;"></div>
+        <div>
+          <div class="skeleton" style="width:60%;margin-bottom:8px;"></div>
+          <div class="skeleton" style="width:85%;height:10px;"></div>
+        </div>
+        <div style="text-align:right">
+          <div class="skeleton" style="width:50px;height:28px;border-radius:6px;"></div>
+        </div>
+      </div>`).join('');
+  }
+
+  try {
+    // Use a CORS proxy for the Google Sheets CSV
+    const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(sheetUrl);
+    const res  = await fetch(proxyUrl);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const text = await res.text();
+    renderLeaderboard(parseCSV(text));
+  } catch (e) {
+    console.error(e);
+    if (entries.querySelector('.skeleton-entry')) {
+      entries.innerHTML = `<div class="state-panel">
+        <div class="icon">📡</div>
+        <p>Couldn't reach the sheet right now.</p>
+        <p class="hint">Check that your sheet is published and the URL is correct.</p>
+      </div>`;
+    }
+  }
+}
+
+function parseCSV(text) {
+  const lines = text.trim().split('\n').filter(l => l.trim());
+  return lines.map(line => {
+    const cols = [];
+    let inQuotes = false, cur = '';
+    for (const ch of line) {
+      if (ch === '"') { inQuotes = !inQuotes; }
+      else if (ch === ',' && !inQuotes) { cols.push(cur.trim()); cur = ''; }
+      else { cur += ch; }
+    }
+    cols.push(cur.trim());
+    return cols;
+  });
+}
+
+function renderLeaderboard(rows) {
+  // Find header row (row with "Participant" in col 2)
+  let dataStart = 0;
+  for (let i = 0; i < rows.length; i++) {
+    if (rows[i][1] && rows[i][1].toLowerCase().includes('participant')) {
+      dataStart = i + 1; break;
+    }
+  }
+
+  // Collect participants
+  const participants = [];
+  for (let i = dataStart; i < rows.length; i++) {
+    const row = rows[i];
+    const name  = row[1] || '';
+    if (!name.trim()) continue;
+
+    // Columns: 0=rank, 1=name, 2=R1, 3=R2, 4=R3, 5=R4, 6=total, 7=status
+    const r1    = row[2] || '';
+    const r2    = row[3] || '';
+    const r3    = row[4] || '';
+    const r4    = row[5] || '';
+    const total = row[6] || '';
+
+    // Try to get picks from Participants sheet if available (cols 3-8 in that sheet)
+    // For the leaderboard sheet we won't have picks, so we skip those
+    participants.push({ name, r1, r2, r3, r4, total });
+  }
+
+  // Sort by total (numeric, ascending)
+  participants.sort((a, b) => {
+    const ta = parseFloat(a.total);
+    const tb = parseFloat(b.total);
+    if (isNaN(ta) && isNaN(tb)) return 0;
+    if (isNaN(ta)) return 1;
+    if (isNaN(tb)) return -1;
+    return ta - tb;
+  });
+
+  const entries = document.getElementById('entries');
+
+  if (participants.length === 0) {
+    entries.innerHTML = `<div class="state-panel">
+      <div class="icon">🏌️</div>
+      <p>No participant data yet.</p>
+      <p class="hint">Enter picks in the Participants tab of your Google Sheet. Scores will appear here once the tournament starts on Thursday.</p>
+    </div>`;
+    updateStats(0, '—', 0);
+    document.getElementById('lastUpdated').textContent = 'Waiting for data…';
+    return;
+  }
+
+  // Count active entries (those with a total score)
+  const active = participants.filter(p => p.total !== '');
+  const tournamentStarted = active.length > 0;
+
+  entries.innerHTML = participants.map((p, i) => {
+    const rank    = tournamentStarted && p.total !== '' ? i + 1 : '–';
+    const rankCls = rank === 1 ? 'top1' : rank === 2 ? 'top2' : rank === 3 ? 'top3' : '';
+    const entryCls = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : '';
+
+    const rounds = [
+      { label: 'R1', val: p.r1 },
+      { label: 'R2', val: p.r2 },
+      { label: 'R3', val: p.r3 },
+      { label: 'R4', val: p.r4 },
+    ];
+
+    const roundPills = rounds.map(r =>
+      `<div class="round-pill ${r.val ? 'has-score' : ''}">${r.val || r.label}</div>`
+    ).join('');
+
+    const displayScore = p.total !== '' ? p.total : '–';
+    const firstName = p.name.split(' ')[0];
+    const lastName  = p.name.split(' ').slice(1).join(' ');
+
+    return `<div class="entry ${entryCls}" style="animation-delay:${Math.min(i*0.03,0.3)}s">
+      <div class="rank ${rankCls}">${rank}</div>
+      <div class="info">
+        <div class="participant-name">${escHtml(p.name)}</div>
+        <div class="round-scores">${roundPills}</div>
+      </div>
+      <div class="score-area">
+        <div class="total-score">${escHtml(String(displayScore))}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const leaderScore = participants[0] && participants[0].total !== '' ? participants[0].total : '–';
+  const pot = participants.length * 25;
+  updateStats(participants.length, leaderScore, pot);
+
+  const now = new Date();
+  document.getElementById('lastUpdated').textContent =
+    `Last updated · ${now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}`;
+}
+
+function updateStats(entries, score, pot) {
+  document.getElementById('statEntries').textContent = entries || '–';
+  document.getElementById('statScore').textContent   = score;
+  document.getElementById('statPot').textContent     = pot ? '$' + pot.toLocaleString() : '–';
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+init();
+</script>
+</body>
+</html>
