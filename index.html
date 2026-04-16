@@ -708,13 +708,14 @@ function parseCSV(text) {
   });
 }
 
-const PAR_PER_ROUND = 71;
+// Sheet now sends score-to-par values directly (e.g. -12, +3, 0)
+// No conversion needed in the dashboard — just format for display
 
-function scoreToPar(total, rPlayed) {
-  if (total === '' || isNaN(parseFloat(total)) || rPlayed === 0) return null;
-  const diff = parseFloat(total) - (PAR_PER_ROUND * rPlayed);
-  if (diff === 0) return 'E';
-  return diff > 0 ? '+' + diff : String(diff);
+function formatToPar(val) {
+  if (val === '' || val === null || isNaN(parseFloat(val))) return '–';
+  const n = parseFloat(val);
+  if (n === 0) return 'E';
+  return n > 0 ? '+' + n : String(n);
 }
 
 function countRounds(r1, r2, r3, r4) {
@@ -729,7 +730,8 @@ function renderLeaderboard(rows) {
     }
   }
 
-  // Columns: 0=rank, 1=name, 2=R1, 3=R2, 4=R3, 5=R4, 6=live/total, 7=status
+  // Columns: 0=rank, 1=name, 2=R1, 3=R2, 4=R3, 5=R4, 6=total/live, 7=status
+  // All score columns are now score-to-par from the Apps Script
   const participants = [];
   for (let i = dataStart; i < rows.length; i++) {
     const row = rows[i];
@@ -738,12 +740,12 @@ function renderLeaderboard(rows) {
     participants.push({
       name,
       r1: row[2] || '', r2: row[3] || '', r3: row[4] || '', r4: row[5] || '',
-      total: row[6] || '',  // Apps Script writes live score here when in-progress
+      total: row[6] || '',
       status: row[7] || ''
     });
   }
 
-  // Sort ascending by total — dashboard always re-sorts independently of sheet
+  // Sort ascending (most negative = best)
   participants.sort((a, b) => {
     const ta = parseFloat(a.total), tb = parseFloat(b.total);
     if (isNaN(ta) && isNaN(tb)) return 0;
@@ -764,7 +766,7 @@ function renderLeaderboard(rows) {
     return;
   }
 
-  const active = participants.filter(p => p.total !== '' && !isNaN(parseFloat(p.total)));
+  const active  = participants.filter(p => p.total !== '' && !isNaN(parseFloat(p.total)));
   const started = active.length > 0;
 
   entries.innerHTML = participants.map((p, i) => {
@@ -773,42 +775,49 @@ function renderLeaderboard(rows) {
     const rankCls  = rank === 1 ? 'top1' : rank === 2 ? 'top2' : rank === 3 ? 'top3' : '';
     const entryCls = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : '';
 
-    // Score-to-par: use completed rounds for par baseline
-    // If live (R4 blank but has total), add 1 extra par round for the in-progress round
-    const completed = countRounds(p.r1, p.r2, p.r3, p.r4);
-    const isInProgress = hasScore && p.r4 === '' && started;
-    const parRounds = completed + (isInProgress && completed < 4 ? 1 : 0);
-    const parScore  = hasScore ? scoreToPar(p.total, parRounds || 1) : '–';
-
-    const scoreColor = !parScore || parScore === '–' ? '' :
+    // Total is already score-to-par from the sheet
+    const parScore = formatToPar(p.total);
+    const scoreColor = parScore === '–' ? '' :
       parScore === 'E'         ? 'color:var(--rbc-gold);'  :
       parScore.startsWith('+') ? 'color:#f87171;'          : 'color:#4ade80;';
 
+    // Round pills — also score-to-par from sheet
     const roundPills = [
       {l:'R1',v:p.r1},{l:'R2',v:p.r2},{l:'R3',v:p.r3},{l:'R4',v:p.r4}
-    ].map(r => `<div class="round-pill ${r.v?'has-score':''}">${r.v||r.l}</div>`).join('');
+    ].map(r => {
+      if (!r.v) return `<div class="round-pill">${r.l}</div>`;
+      const disp = formatToPar(r.v);
+      const col  = disp === 'E' ? 'color:var(--rbc-gold)' :
+                   disp.startsWith('+') ? 'color:#f87171' : 'color:#4ade80';
+      return `<div class="round-pill has-score" style="${col}">${disp}</div>`;
+    }).join('');
+
+    const completed    = countRounds(p.r1, p.r2, p.r3, p.r4);
+    const isInProgress = hasScore && p.r4 === '' && started;
 
     const liveBadge = isInProgress
       ? `<span style="display:inline-block;margin-left:6px;font-size:9px;font-family:'DM Mono',monospace;letter-spacing:0.1em;background:rgba(200,169,81,0.15);border:1px solid rgba(200,169,81,0.4);color:var(--rbc-gold);border-radius:4px;padding:1px 5px;">LIVE</span>`
       : '';
 
+    const thruLabel = completed > 0
+      ? `<span style="font-size:10px;color:var(--rbc-sub);margin-left:4px;">thru R${completed}</span>`
+      : '';
+
     return `<div class="entry ${entryCls}" style="animation-delay:${Math.min(i*0.03,0.3)}s">
       <div class="rank ${rankCls}">${rank}</div>
       <div class="info">
-        <div class="participant-name">${escHtml(p.name)}${liveBadge}</div>
+        <div class="participant-name">${escHtml(p.name)}${liveBadge}${thruLabel}</div>
         <div class="round-scores">${roundPills}</div>
       </div>
       <div class="score-area">
-        <div class="total-score" style="${scoreColor}">${escHtml(String(parScore))}</div>
-        <div style="font-size:10px;color:var(--rbc-sub);margin-top:2px;text-align:right;">${hasScore?p.total+' strokes':''}</div>
+        <div class="total-score" style="${scoreColor}">${escHtml(parScore)}</div>
       </div>
     </div>`;
   }).join('');
 
   const leader    = active[0];
-  const lComp     = leader ? countRounds(leader.r1, leader.r2, leader.r3, leader.r4) : 0;
-  const leaderPar = leader ? scoreToPar(leader.total, lComp || 1) : '–';
-  updateStats(participants.length, leaderPar || '–', participants.length * 25);
+  const leaderPar = leader ? formatToPar(leader.total) : '–';
+  updateStats(participants.length, leaderPar, participants.length * 25);
 
   const now = new Date();
   document.getElementById('lastUpdated').textContent =
