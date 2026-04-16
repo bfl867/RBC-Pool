@@ -583,8 +583,8 @@
 <footer>
   <div class="refresh-bar" id="refreshBar" style="display:none;">
     <div class="live-dot"></div>
-    <span>Auto-refresh</span>
-    <span id="countdown">60s</span>
+    <span>Live · refreshes every 30s</span>
+    <span id="countdown">30s</span>
     <button onclick="loadData(true)">Refresh now</button>
   </div>
 </footer>
@@ -592,7 +592,7 @@
 <script>
 const STORAGE_KEY = 'rbcPoolSheetUrl';
 const DEFAULT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRHd7oCrxE_K88bu4u1R-UQhiO817sKgyD-XZFckBMKfd_MfNy_vAk3bHcyYQyJo700NbEBwbEWraXn/pub?gid=424819909&single=true&output=csv';
-const REFRESH_INTERVAL = 60;
+const REFRESH_INTERVAL = 30;
 
 let sheetUrl = '';
 let countdown = REFRESH_INTERVAL;
@@ -708,23 +708,20 @@ function parseCSV(text) {
   });
 }
 
-// Par per round and rounds completed — used for score-to-par calculation
 const PAR_PER_ROUND = 71;
 
-function scoreToPar(total, roundsPlayed) {
-  if (total === '' || isNaN(parseFloat(total))) return null;
-  const par = PAR_PER_ROUND * roundsPlayed;
-  const diff = parseFloat(total) - par;
+function scoreToPar(total, rPlayed) {
+  if (total === '' || isNaN(parseFloat(total)) || rPlayed === 0) return null;
+  const diff = parseFloat(total) - (PAR_PER_ROUND * rPlayed);
   if (diff === 0) return 'E';
   return diff > 0 ? '+' + diff : String(diff);
 }
 
-function roundsPlayed(r1, r2, r3, r4) {
+function countRounds(r1, r2, r3, r4) {
   return [r1, r2, r3, r4].filter(r => r !== '' && !isNaN(parseFloat(r))).length;
 }
 
 function renderLeaderboard(rows) {
-  // Find header row (contains "Participant" in col B)
   let dataStart = 0;
   for (let i = 0; i < rows.length; i++) {
     if (rows[i][1] && rows[i][1].toLowerCase().includes('participant')) {
@@ -732,26 +729,25 @@ function renderLeaderboard(rows) {
     }
   }
 
-  // Collect participants — columns: 0=rank, 1=name, 2=R1, 3=R2, 4=R3, 5=R4, 6=total
+  // Columns: 0=rank, 1=name, 2=R1, 3=R2, 4=R3, 5=R4, 6=live/total, 7=status
   const participants = [];
   for (let i = dataStart; i < rows.length; i++) {
-    const row  = rows[i];
+    const row = rows[i];
     const name = (row[1] || '').trim();
     if (!name) continue;
-    const r1    = row[2] || '';
-    const r2    = row[3] || '';
-    const r3    = row[4] || '';
-    const r4    = row[5] || '';
-    const total = row[6] || '';
-    participants.push({ name, r1, r2, r3, r4, total });
+    participants.push({
+      name,
+      r1: row[2] || '', r2: row[3] || '', r3: row[4] || '', r4: row[5] || '',
+      total: row[6] || '',  // Apps Script writes live score here when in-progress
+      status: row[7] || ''
+    });
   }
 
-  // Always sort by total score ascending — this fixes the reshuffle issue
+  // Sort ascending by total — dashboard always re-sorts independently of sheet
   participants.sort((a, b) => {
-    const ta = parseFloat(a.total);
-    const tb = parseFloat(b.total);
+    const ta = parseFloat(a.total), tb = parseFloat(b.total);
     if (isNaN(ta) && isNaN(tb)) return 0;
-    if (isNaN(ta)) return 1;   // no score goes to bottom
+    if (isNaN(ta)) return 1;
     if (isNaN(tb)) return -1;
     return ta - tb;
   });
@@ -760,9 +756,8 @@ function renderLeaderboard(rows) {
 
   if (participants.length === 0) {
     entries.innerHTML = `<div class="state-panel">
-      <div class="icon">🏌️</div>
-      <p>No participant data yet.</p>
-      <p class="hint">Enter picks in the Participants tab of your Google Sheet. Scores will appear here once the tournament starts.</p>
+      <div class="icon">🏌️</div><p>No participant data yet.</p>
+      <p class="hint">Enter picks in the Participants tab. Scores appear once the tournament starts.</p>
     </div>`;
     updateStats(0, '—', 0);
     document.getElementById('lastUpdated').textContent = 'Waiting for data…';
@@ -770,62 +765,54 @@ function renderLeaderboard(rows) {
   }
 
   const active = participants.filter(p => p.total !== '' && !isNaN(parseFloat(p.total)));
-  const tournamentStarted = active.length > 0;
+  const started = active.length > 0;
 
   entries.innerHTML = participants.map((p, i) => {
     const hasScore = p.total !== '' && !isNaN(parseFloat(p.total));
-    const rank     = tournamentStarted && hasScore ? i + 1 : '–';
+    const rank     = started && hasScore ? i + 1 : '–';
     const rankCls  = rank === 1 ? 'top1' : rank === 2 ? 'top2' : rank === 3 ? 'top3' : '';
     const entryCls = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : '';
 
-    const played = roundsPlayed(p.r1, p.r2, p.r3, p.r4);
-    const parScore = hasScore ? scoreToPar(p.total, played) : '–';
+    // Score-to-par: use completed rounds for par baseline
+    // If live (R4 blank but has total), add 1 extra par round for the in-progress round
+    const completed = countRounds(p.r1, p.r2, p.r3, p.r4);
+    const isInProgress = hasScore && p.r4 === '' && started;
+    const parRounds = completed + (isInProgress && completed < 4 ? 1 : 0);
+    const parScore  = hasScore ? scoreToPar(p.total, parRounds || 1) : '–';
 
-    // Color the score: red for over par, gold for even/under
-    const scoreColor = parScore === null || parScore === '–' ? '' :
-      parScore === 'E' ? 'color: var(--rbc-gold);' :
-      parScore.startsWith('+') ? 'color: #f87171;' : 'color: #4ade80;';
+    const scoreColor = !parScore || parScore === '–' ? '' :
+      parScore === 'E'         ? 'color:var(--rbc-gold);'  :
+      parScore.startsWith('+') ? 'color:#f87171;'          : 'color:#4ade80;';
 
-    // Round pills — show actual stroke total for each round
-    const roundDefs = [
-      { label: 'R1', val: p.r1 },
-      { label: 'R2', val: p.r2 },
-      { label: 'R3', val: p.r3 },
-      { label: 'R4', val: p.r4 },
-    ];
+    const roundPills = [
+      {l:'R1',v:p.r1},{l:'R2',v:p.r2},{l:'R3',v:p.r3},{l:'R4',v:p.r4}
+    ].map(r => `<div class="round-pill ${r.v?'has-score':''}">${r.v||r.l}</div>`).join('');
 
-    const roundPills = roundDefs.map(r => {
-      if (!r.val) return `<div class="round-pill">${r.label}</div>`;
-      const rPar = parseFloat(r.val) - PAR_PER_ROUND * 4; // per-round par relative
-      // just show the stroke total for each round
-      return `<div class="round-pill has-score">${r.val}</div>`;
-    }).join('');
-
-    // Rounds played indicator e.g. "Thru R2"
-    const thru = played > 0 ? `<span style="font-size:10px;color:var(--rbc-sub);margin-left:6px;">Thru R${played}</span>` : '';
+    const liveBadge = isInProgress
+      ? `<span style="display:inline-block;margin-left:6px;font-size:9px;font-family:'DM Mono',monospace;letter-spacing:0.1em;background:rgba(200,169,81,0.15);border:1px solid rgba(200,169,81,0.4);color:var(--rbc-gold);border-radius:4px;padding:1px 5px;">LIVE</span>`
+      : '';
 
     return `<div class="entry ${entryCls}" style="animation-delay:${Math.min(i*0.03,0.3)}s">
       <div class="rank ${rankCls}">${rank}</div>
       <div class="info">
-        <div class="participant-name">${escHtml(p.name)}${thru}</div>
+        <div class="participant-name">${escHtml(p.name)}${liveBadge}</div>
         <div class="round-scores">${roundPills}</div>
       </div>
       <div class="score-area">
         <div class="total-score" style="${scoreColor}">${escHtml(String(parScore))}</div>
-        <div style="font-size:11px;color:var(--rbc-sub);margin-top:2px;text-align:right;">${hasScore ? p.total + ' strokes' : ''}</div>
+        <div style="font-size:10px;color:var(--rbc-sub);margin-top:2px;text-align:right;">${hasScore?p.total+' strokes':''}</div>
       </div>
     </div>`;
   }).join('');
 
-  // Leader stat shows score to par
-  const leader = active[0];
-  const leaderPar = leader ? scoreToPar(leader.total, roundsPlayed(leader.r1, leader.r2, leader.r3, leader.r4)) : '–';
-  const pot = participants.length * 25;
-  updateStats(participants.length, leaderPar || '–', pot);
+  const leader    = active[0];
+  const lComp     = leader ? countRounds(leader.r1, leader.r2, leader.r3, leader.r4) : 0;
+  const leaderPar = leader ? scoreToPar(leader.total, lComp || 1) : '–';
+  updateStats(participants.length, leaderPar || '–', participants.length * 25);
 
   const now = new Date();
   document.getElementById('lastUpdated').textContent =
-    `Last updated · ${now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
+    `Last updated · ${now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'})}`;
 }
 
 function updateStats(entries, score, pot) {
