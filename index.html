@@ -790,9 +790,17 @@ function renderLeaderboard(rows) {
 
     const completed    = countRounds(p.r1, p.r2, p.r3, p.r4);
     const isInProgress = hasScore && p.r4 === '' && started;
-    // For total: use completed rounds count; if in progress add 1 partial round
-    const totalRounds  = completed + (isInProgress ? 1 : 0);
-    const parScore     = formatToPar(p.total, totalRounds || 1);
+
+    // For total score-to-par:
+    // Use completed rounds for the par baseline ONLY.
+    // The live total includes partial strokes but we compare against
+    // completed rounds' par — this gives a slight overcount mid-round
+    // but is far more accurate than using totalRounds+1
+    const parScore = completed > 0
+      ? formatToPar(p.total, completed)
+      : isInProgress
+        ? formatToPar(p.total, 1)  // mid R1, no completed rounds yet
+        : '–';
 
     const scoreColor = parScore === '–' ? '' :
       parScore === 'E'         ? 'color:var(--rbc-gold);'  :
@@ -833,8 +841,9 @@ function renderLeaderboard(rows) {
   const leader    = active[0];
   const lComp     = leader ? countRounds(leader.r1, leader.r2, leader.r3, leader.r4) : 0;
   const lInProg   = leader && leader.r4 === '' && started;
-  const lRounds   = lComp + (lInProg ? 1 : 0);
-  const leaderPar = leader ? formatToPar(leader.total, lRounds || 1) : '–';
+  const leaderPar = leader
+    ? (lComp > 0 ? formatToPar(leader.total, lComp) : lInProg ? formatToPar(leader.total, 1) : '–')
+    : '–';
   updateStats(participants.length, leaderPar, participants.length * 25);
 
   const now = new Date();
