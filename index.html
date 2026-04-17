@@ -866,7 +866,7 @@ function renderLeaderboard(rows) {
     }
   }
 
-  // Columns: 0=rank,1=name,2=R1,3=R2,4=R3,5=R4,6=total,7=status,8=picksJSON
+  // Columns: 0=rank,1=name,2=R1,3=R2,4=R3,5=R4,6=total,7=picksJSON
   const participants = [];
   for (let i = dataStart; i < rows.length; i++) {
     const row = rows[i];
@@ -874,13 +874,12 @@ function renderLeaderboard(rows) {
     if (!name) continue;
 
     let picks = [];
-    try { picks = JSON.parse(row[8] || '[]'); } catch(e) {}
+    try { picks = JSON.parse(row[7] || '[]'); } catch(e) {}
 
     participants.push({
       name,
       r1: row[2] || '', r2: row[3] || '', r3: row[4] || '', r4: row[5] || '',
       total: row[6] || '',
-      status: row[7] || '',
       picks
     });
   }
