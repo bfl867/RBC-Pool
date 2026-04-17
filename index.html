@@ -874,23 +874,23 @@ function renderLeaderboard(rows) {
 
     let picks = [];
     const rawPicks = row[7] || '';
-    if (i === dataStart) {
-      console.log('DEBUG full row columns:');
-      row.forEach((v, idx) => console.log('  col[' + idx + ']: ' + String(v).substring(0, 60)));
-    }
     try {
-      // Try col 7 first, then scan all cols for JSON
-      let jsonStr = rawPicks;
-      if (!jsonStr.trim().startsWith('[')) {
-        for (let c = 0; c < row.length; c++) {
-          if (row[c] && row[c].trim && row[c].trim().startsWith('[')) {
-            jsonStr = row[c];
-            if (i === dataStart) console.log('DEBUG found JSON in col', c);
-            break;
-          }
-        }
+      if (rawPicks && rawPicks.includes('~')) {
+        // Format: "Name|toPar|thru|status~Name|toPar|thru|status~..."
+        picks = rawPicks.split('~').map(chunk => {
+          const parts = chunk.split('|');
+          return {
+            name:   parts[0] || '',
+            toPar:  parts[1] === 'null' || parts[1] === '' ? null : parseFloat(parts[1]),
+            thru:   parseInt(parts[2]) || 0,
+            status: parts[3] || ''
+          };
+        }).filter(p => p.name);
+      } else if (rawPicks && rawPicks.includes('|')) {
+        // Single pick fallback
+        const parts = rawPicks.split('|');
+        if (parts[0]) picks = [{ name: parts[0], toPar: parts[1] === 'null' ? null : parseFloat(parts[1]), thru: parseInt(parts[2]) || 0, status: parts[3] || '' }];
       }
-      if (jsonStr && jsonStr.trim().startsWith('[')) picks = JSON.parse(jsonStr);
     } catch(e) {
       console.log('picks parse error:', e.message);
     }
