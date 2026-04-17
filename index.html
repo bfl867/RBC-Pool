@@ -803,8 +803,7 @@ async function loadData(manual) {
   }
 
   try {
-    // Use a CORS proxy for the Google Sheets CSV
-    const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(sheetUrl);
+    const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(sheetUrl);
     const res  = await fetch(proxyUrl);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const text = await res.text();
