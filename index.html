@@ -617,23 +617,48 @@
   }
 
   /* ── Animations ── */
-  .entry { animation: fadeUp 0.3s ease both; }
+  /* Initial load stagger */
+  .entry.initial { animation: fadeUp 0.35s ease both; }
   @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(8px); }
+    from { opacity: 0; transform: translateY(10px); }
     to   { opacity: 1; transform: translateY(0); }
   }
+  .entry.initial:nth-child(1)  { animation-delay: 0.00s; }
+  .entry.initial:nth-child(2)  { animation-delay: 0.04s; }
+  .entry.initial:nth-child(3)  { animation-delay: 0.08s; }
+  .entry.initial:nth-child(4)  { animation-delay: 0.12s; }
+  .entry.initial:nth-child(5)  { animation-delay: 0.16s; }
+  .entry.initial:nth-child(6)  { animation-delay: 0.20s; }
+  .entry.initial:nth-child(7)  { animation-delay: 0.24s; }
+  .entry.initial:nth-child(8)  { animation-delay: 0.28s; }
+  .entry.initial:nth-child(9)  { animation-delay: 0.32s; }
+  .entry.initial:nth-child(10) { animation-delay: 0.36s; }
 
-  /* stagger */
-  .entry:nth-child(1)  { animation-delay: 0.00s; }
-  .entry:nth-child(2)  { animation-delay: 0.03s; }
-  .entry:nth-child(3)  { animation-delay: 0.06s; }
-  .entry:nth-child(4)  { animation-delay: 0.09s; }
-  .entry:nth-child(5)  { animation-delay: 0.12s; }
-  .entry:nth-child(6)  { animation-delay: 0.15s; }
-  .entry:nth-child(7)  { animation-delay: 0.18s; }
-  .entry:nth-child(8)  { animation-delay: 0.21s; }
-  .entry:nth-child(9)  { animation-delay: 0.24s; }
-  .entry:nth-child(10) { animation-delay: 0.27s; }
+  /* Score flash when value changes */
+  @keyframes scoreFlash {
+    0%   { opacity: 1; }
+    25%  { opacity: 0.2; transform: scale(0.92); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+  .score-flash { animation: scoreFlash 0.5s ease; }
+
+  /* Score improved (went more negative) */
+  @keyframes scoreBetter {
+    0%   { color: #4ade80; transform: scale(1.15); }
+    100% { transform: scale(1); }
+  }
+  .score-better { animation: scoreBetter 0.6s ease; }
+
+  /* Score worsened (went more positive) */
+  @keyframes scoreWorse {
+    0%   { color: #f87171; transform: scale(1.15); }
+    100% { transform: scale(1); }
+  }
+  .score-worse { animation: scoreWorse 0.6s ease; }
+
+  /* FLIP transition for position changes */
+  .entry { transition: none; will-change: transform; }
+  .entry.flipping { transition: transform 0.55s cubic-bezier(0.34, 1.3, 0.64, 1); }
 
   /* ── Responsive ── */
   @media (max-width: 420px) {
@@ -836,9 +861,12 @@ function parseCSV(text) {
 }
 
 
-// Previous rankings for movement indicators
-let prevRankings = {};
+// ── State ────────────────────────────────────────────────────
+let prevRankings  = {};   // name → rank from last render
+let prevScores    = {};   // name → total score from last render
+let isFirstRender = true;
 
+// ── Helpers ──────────────────────────────────────────────────
 function formatToPar(val) {
   if (val === '' || val === null || isNaN(parseFloat(val))) return '–';
   const n = parseFloat(val);
@@ -857,6 +885,7 @@ function countRounds(r1, r2, r3, r4) {
   return [r1, r2, r3, r4].filter(r => r !== '' && !isNaN(parseFloat(r))).length;
 }
 
+// ── Main render ──────────────────────────────────────────────
 function renderLeaderboard(rows) {
   let dataStart = 0;
   for (let i = 0; i < rows.length; i++) {
@@ -865,10 +894,9 @@ function renderLeaderboard(rows) {
     }
   }
 
-  // Columns: 0=rank,1=name,2=R1,3=R2,4=R3,5=R4,6=total,7=picksJSON
   const participants = [];
   for (let i = dataStart; i < rows.length; i++) {
-    const row = rows[i];
+    const row  = rows[i];
     const name = (row[1] || '').trim();
     if (!name) continue;
 
@@ -876,7 +904,6 @@ function renderLeaderboard(rows) {
     const rawPicks = row[7] || '';
     try {
       if (rawPicks && rawPicks.includes('~')) {
-        // Format: "Name|toPar|thru|status~Name|toPar|thru|status~..."
         picks = rawPicks.split('~').map(chunk => {
           const parts = chunk.split('|');
           return {
@@ -886,14 +913,8 @@ function renderLeaderboard(rows) {
             status: parts[3] || ''
           };
         }).filter(p => p.name);
-      } else if (rawPicks && rawPicks.includes('|')) {
-        // Single pick fallback
-        const parts = rawPicks.split('|');
-        if (parts[0]) picks = [{ name: parts[0], toPar: parts[1] === 'null' ? null : parseFloat(parts[1]), thru: parseInt(parts[2]) || 0, status: parts[3] || '' }];
       }
-    } catch(e) {
-      console.log('picks parse error:', e.message);
-    }
+    } catch(e) {}
 
     participants.push({
       name,
@@ -911,9 +932,12 @@ function renderLeaderboard(rows) {
     return ta - tb;
   });
 
-  const entries = document.getElementById('entries');
+  const entriesEl = document.getElementById('entries');
+  const active    = participants.filter(p => p.total !== '' && !isNaN(parseFloat(p.total)));
+  const started   = active.length > 0;
+
   if (participants.length === 0) {
-    entries.innerHTML = `<div class="state-panel">
+    entriesEl.innerHTML = `<div class="state-panel">
       <div class="icon">🏌️</div><p>No participant data yet.</p>
       <p class="hint">Enter picks in the Participants tab. Scores appear once the tournament starts.</p>
     </div>`;
@@ -922,124 +946,195 @@ function renderLeaderboard(rows) {
     return;
   }
 
-  const active  = participants.filter(p => p.total !== '' && !isNaN(parseFloat(p.total)));
-  const started = active.length > 0;
-
   // Build new rankings map
   const newRankings = {};
   participants.forEach((p, i) => { if (p.total !== '') newRankings[p.name] = i + 1; });
 
-  // Preserve expanded state
-  const expanded = new Set();
-  entries.querySelectorAll('.entry.is-open').forEach(el => {
-    expanded.add(el.dataset.name);
+  if (isFirstRender) {
+    // ── First render: build DOM with stagger animation ────────
+    entriesEl.innerHTML = participants.map((p, i) => buildEntryHTML(p, i, newRankings, started, true)).join('');
+    isFirstRender = false;
+  } else {
+    // ── Subsequent renders: FLIP animation ───────────────────
+    flipUpdate(entriesEl, participants, newRankings, started);
+  }
+
+  prevRankings = newRankings;
+  prevScores   = {};
+  participants.forEach(p => { prevScores[p.name] = p.total; });
+
+  updateStats(participants.length, formatToPar(active[0] ? active[0].total : ''), participants.length * 25);
+  const now = new Date();
+  document.getElementById('lastUpdated').textContent =
+    `Last updated · ${now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'})}`;
+}
+
+// ── FLIP animation ───────────────────────────────────────────
+// F = record First positions of all existing cards
+// L = reorder DOM (Last positions)
+// I = Invert: apply transforms to put cards back in old positions
+// P = Play: remove transforms with transition so they animate to new spot
+function flipUpdate(container, participants, newRankings, started) {
+  const existingCards = {};
+  container.querySelectorAll('.entry[data-name]').forEach(el => {
+    existingCards[el.dataset.name] = {
+      el,
+      top: el.getBoundingClientRect().top
+    };
   });
 
-  entries.innerHTML = participants.map((p, i) => {
-    const hasScore = p.total !== '' && !isNaN(parseFloat(p.total));
-    const rank     = started && hasScore ? i + 1 : '–';
-    const rankCls  = rank === 1 ? 'top1' : rank === 2 ? 'top2' : rank === 3 ? 'top3' : '';
-    const entryCls = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : '';
-
-    // Movement indicator
-    let movementHtml = '';
-    if (hasScore && prevRankings[p.name] !== undefined) {
-      const prev = prevRankings[p.name];
-      const curr = rank;
-      const diff = prev - curr; // positive = moved up
-      if (diff > 0) {
-        movementHtml = `<span class="movement up">▲${diff}</span>`;
-      } else if (diff < 0) {
-        movementHtml = `<span class="movement down">▼${Math.abs(diff)}</span>`;
-      }
+  // Check which cards need score updates
+  const scoreChanges = {};
+  participants.forEach(p => {
+    if (prevScores[p.name] !== undefined && prevScores[p.name] !== p.total) {
+      const prev = parseFloat(prevScores[p.name]);
+      const curr = parseFloat(p.total);
+      scoreChanges[p.name] = isNaN(prev) ? 'new' : (curr < prev ? 'better' : 'worse');
     }
+  });
 
-    const parScore   = formatToPar(p.total);
-    const scoreCol   = scoreColor(p.total);
+  // Preserve expanded state
+  const expanded = new Set();
+  container.querySelectorAll('.entry.is-open').forEach(el => expanded.add(el.dataset.name));
 
-    const roundPills = [
-      {l:'R1',v:p.r1},{l:'R2',v:p.r2},{l:'R3',v:p.r3},{l:'R4',v:p.r4}
-    ].map(r => {
-      if (!r.v) return `<div class="round-pill">${r.l}</div>`;
-      const disp = formatToPar(r.v);
-      const col  = disp === 'E' ? 'color:var(--rbc-gold)' :
-                   disp.startsWith('+') ? 'color:#f87171' : 'color:#4ade80';
-      return `<div class="round-pill has-score" style="${col}">${disp}</div>`;
-    }).join('');
+  // Rebuild HTML (this moves cards to new positions in DOM)
+  container.innerHTML = participants.map((p, i) =>
+    buildEntryHTML(p, i, newRankings, started, false, expanded.has(p.name))
+  ).join('');
 
-    const completed    = countRounds(p.r1, p.r2, p.r3, p.r4);
-    const isInProgress = hasScore && p.r4 === '' && started;
+  // Apply score flash animations
+  Object.entries(scoreChanges).forEach(([name, change]) => {
+    const card = container.querySelector(`.entry[data-name="${CSS.escape(name)}"]`);
+    if (!card) return;
+    const scoreEl = card.querySelector('.total-score');
+    if (!scoreEl) return;
+    if (change === 'better') {
+      scoreEl.classList.add('score-better');
+      setTimeout(() => scoreEl.classList.remove('score-better'), 700);
+    } else if (change === 'worse') {
+      scoreEl.classList.add('score-worse');
+      setTimeout(() => scoreEl.classList.remove('score-worse'), 700);
+    }
+  });
 
-    const liveBadge = isInProgress
-      ? `<span style="display:inline-block;margin-left:6px;font-size:9px;font-family:'DM Mono',monospace;letter-spacing:0.1em;background:rgba(200,169,81,0.15);border:1px solid rgba(200,169,81,0.4);color:var(--rbc-gold);border-radius:4px;padding:1px 5px;">LIVE</span>`
-      : '';
+  // FLIP: measure new positions, invert, then play
+  const movedCards = [];
+  container.querySelectorAll('.entry[data-name]').forEach(el => {
+    const name = el.dataset.name;
+    const old  = existingCards[name];
+    if (!old) return; // new card — skip FLIP, just show it
 
-    const thruLabel = completed > 0
-      ? `<span style="font-size:10px;color:var(--rbc-sub);margin-left:4px;">thru R${completed}</span>`
-      : '';
+    const newTop  = el.getBoundingClientRect().top;
+    const deltaY  = old.top - newTop;
 
-    // Picks panel — sort picks by toPar, mark top 4 as counting
-    const sortedPicks = [...p.picks]
-      .filter(pk => pk.name)
-      .sort((a, b) => {
-        if (a.toPar === null && b.toPar === null) return 0;
-        if (a.toPar === null) return 1;
-        if (b.toPar === null) return -1;
-        return a.toPar - b.toPar;
-      });
+    if (Math.abs(deltaY) > 2) {
+      // Snap card back to old position instantly
+      el.style.transform = `translateY(${deltaY}px)`;
+      el.style.transition = 'none';
+      movedCards.push(el);
+    }
+  });
 
-    const debugInfo = `<div style="font-size:10px;color:var(--rbc-sub);padding:4px 0;">picks: ${p.picks.length} | raw: ${escHtml(String(p.picks.length > 0 ? p.picks[0].name : 'none'))}</div>`;
+  // Force reflow so browser registers the snapped positions
+  container.offsetHeight;
 
-    const picksHtml = sortedPicks.length === 0
-      ? `<div style="font-size:12px;color:var(--rbc-sub);text-align:center;padding:8px;">No pick data yet — run Update Scores in the sheet</div>`
-      : sortedPicks.map((pk, pi) => {
-      const isCounting = pi < 4 && pk.toPar !== null;
-      const pScore     = formatToPar(pk.toPar);
-      const pCol       = scoreColor(pk.toPar);
-      const isLive     = pk.status && pk.status.includes('active');
-      const thru       = pk.thru > 0 ? `T${pk.thru}` : pk.status && pk.status.includes('finish') ? 'F' : '–';
-      const lastName   = pk.name.split(' ').pop();
+  // Play: animate all moved cards to their new (natural) positions
+  movedCards.forEach((el, idx) => {
+    el.classList.add('flipping');
+    el.style.transform = '';
+    // Stagger slightly so multiple moves feel deliberate
+    el.style.transitionDelay = (idx * 0.04) + 's';
+    setTimeout(() => {
+      el.classList.remove('flipping');
+      el.style.transitionDelay = '';
+    }, 700);
+  });
+}
 
-      return `<div class="pick-row ${isCounting ? 'counting' : ''}">
-        <span class="pick-name ${isCounting ? 'counting' : ''}">${escHtml(lastName)}</span>
-        <div class="pick-meta">
-          ${isLive ? '<div class="pick-live-dot"></div>' : ''}
-          <span class="pick-thru">${escHtml(thru)}</span>
-          <span class="pick-score" style="${pCol}">${escHtml(pScore)}</span>
-        </div>
-      </div>`;
-    }).join('');
+// ── Build a single entry's HTML ──────────────────────────────
+function buildEntryHTML(p, i, newRankings, started, initial, isOpen = false) {
+  const hasScore = p.total !== '' && !isNaN(parseFloat(p.total));
+  const rank     = started && hasScore ? i + 1 : '–';
+  const rankCls  = rank === 1 ? 'top1' : rank === 2 ? 'top2' : rank === 3 ? 'top3' : '';
+  const entryCls = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : '';
 
-    const isOpen = expanded.has(p.name);
+  // Movement indicator
+  let movementHtml = '';
+  if (!initial && hasScore && prevRankings[p.name] !== undefined) {
+    const diff = prevRankings[p.name] - rank;
+    if (diff > 0)      movementHtml = `<span class="movement up">▲${diff}</span>`;
+    else if (diff < 0) movementHtml = `<span class="movement down">▼${Math.abs(diff)}</span>`;
+  }
 
-    return `<div class="entry ${entryCls} ${isOpen ? 'is-open' : ''}"
-        data-name="${escHtml(p.name)}"
-        style="animation-delay:${Math.min(i*0.03,0.3)}s"
-        onclick="toggleExpand(this)">
-      <div class="rank ${rankCls}">${rank}</div>
-      <div class="info">
-        <div class="participant-name">${escHtml(p.name)}${movementHtml}${liveBadge}${thruLabel}</div>
-        <div class="round-scores">${roundPills}</div>
-      </div>
-      <div class="score-area">
-        <div class="total-score" style="${scoreCol}">${escHtml(parScore)}</div>
-      </div>
-      <div class="picks-panel ${isOpen ? 'open' : ''}">
-        ${debugInfo}
-        <div class="picks-grid">${picksHtml}</div>
-        <div class="expand-hint">tap to collapse</div>
+  const parScore = formatToPar(p.total);
+  const scoreCol = scoreColor(p.total);
+
+  const roundPills = [
+    {l:'R1',v:p.r1},{l:'R2',v:p.r2},{l:'R3',v:p.r3},{l:'R4',v:p.r4}
+  ].map(r => {
+    if (!r.v) return `<div class="round-pill">${r.l}</div>`;
+    const disp = formatToPar(r.v);
+    const col  = disp === 'E' ? 'color:var(--rbc-gold)' :
+                 disp.startsWith('+') ? 'color:#f87171' : 'color:#4ade80';
+    return `<div class="round-pill has-score" style="${col}">${disp}</div>`;
+  }).join('');
+
+  const completed    = countRounds(p.r1, p.r2, p.r3, p.r4);
+  const isInProgress = hasScore && p.r4 === '' && started;
+
+  const liveBadge = isInProgress
+    ? `<span style="display:inline-block;margin-left:6px;font-size:9px;font-family:'DM Mono',monospace;letter-spacing:0.1em;background:rgba(200,169,81,0.15);border:1px solid rgba(200,169,81,0.4);color:var(--rbc-gold);border-radius:4px;padding:1px 5px;">LIVE</span>`
+    : '';
+
+  const thruLabel = completed > 0
+    ? `<span style="font-size:10px;color:var(--rbc-sub);margin-left:4px;">thru R${completed}</span>`
+    : '';
+
+  // Picks panel
+  const sortedPicks = [...p.picks]
+    .filter(pk => pk.name)
+    .sort((a, b) => {
+      if (a.toPar === null && b.toPar === null) return 0;
+      if (a.toPar === null) return 1;
+      if (b.toPar === null) return -1;
+      return a.toPar - b.toPar;
+    });
+
+  const picksHtml = sortedPicks.map((pk, pi) => {
+    const isCounting = pi < 4 && pk.toPar !== null;
+    const pScore     = formatToPar(pk.toPar);
+    const pCol       = scoreColor(pk.toPar);
+    const isLive     = pk.status && pk.status.includes('active');
+    const thru       = pk.thru > 0 ? `T${pk.thru}` : pk.status && pk.status.includes('finish') ? 'F' : '–';
+    const lastName   = pk.name.split(' ').pop();
+    return `<div class="pick-row ${isCounting ? 'counting' : ''}">
+      <span class="pick-name ${isCounting ? 'counting' : ''}">${escHtml(lastName)}</span>
+      <div class="pick-meta">
+        ${isLive ? '<div class="pick-live-dot"></div>' : ''}
+        <span class="pick-thru">${escHtml(thru)}</span>
+        <span class="pick-score" style="${pCol}">${escHtml(pScore)}</span>
       </div>
     </div>`;
   }).join('');
 
-  // Update previous rankings for next refresh
-  prevRankings = newRankings;
+  const animClass = initial ? 'initial' : '';
 
-  updateStats(participants.length, formatToPar(active[0] ? active[0].total : ''), participants.length * 25);
-
-  const now = new Date();
-  document.getElementById('lastUpdated').textContent =
-    `Last updated · ${now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'})}`;
+  return `<div class="entry ${entryCls} ${animClass} ${isOpen ? 'is-open' : ''}"
+      data-name="${escHtml(p.name)}"
+      onclick="toggleExpand(this)">
+    <div class="rank ${rankCls}">${rank}</div>
+    <div class="info">
+      <div class="participant-name">${escHtml(p.name)}${movementHtml}${liveBadge}${thruLabel}</div>
+      <div class="round-scores">${roundPills}</div>
+    </div>
+    <div class="score-area">
+      <div class="total-score" style="${scoreCol}">${escHtml(parScore)}</div>
+    </div>
+    <div class="picks-panel ${isOpen ? 'open' : ''}">
+      <div class="picks-grid">${picksHtml}</div>
+      <div class="expand-hint">tap to collapse</div>
+    </div>
+  </div>`;
 }
 
 function toggleExpand(el) {
@@ -1048,6 +1143,7 @@ function toggleExpand(el) {
   el.classList.toggle('is-open', !isOpen);
   panel.classList.toggle('open', !isOpen);
 }
+
 
 function updateStats(entries, score, pot) {
   document.getElementById('statEntries').textContent = entries || '–';
