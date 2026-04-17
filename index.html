@@ -988,7 +988,11 @@ function renderLeaderboard(rows) {
         return a.toPar - b.toPar;
       });
 
-    const picksHtml = sortedPicks.map((pk, pi) => {
+    const debugInfo = `<div style="font-size:10px;color:var(--rbc-sub);padding:4px 0;">picks: ${p.picks.length} | raw: ${escHtml(String(p.picks.length > 0 ? p.picks[0].name : 'none'))}</div>`;
+
+    const picksHtml = sortedPicks.length === 0
+      ? `<div style="font-size:12px;color:var(--rbc-sub);text-align:center;padding:8px;">No pick data yet — run Update Scores in the sheet</div>`
+      : sortedPicks.map((pk, pi) => {
       const isCounting = pi < 4 && pk.toPar !== null;
       const pScore     = formatToPar(pk.toPar);
       const pCol       = scoreColor(pk.toPar);
@@ -1021,6 +1025,7 @@ function renderLeaderboard(rows) {
         <div class="total-score" style="${scoreCol}">${escHtml(parScore)}</div>
       </div>
       <div class="picks-panel ${isOpen ? 'open' : ''}">
+        ${debugInfo}
         <div class="picks-grid">${picksHtml}</div>
         <div class="expand-hint">tap to collapse</div>
       </div>
