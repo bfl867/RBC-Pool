@@ -660,6 +660,102 @@
   .entry { transition: none; will-change: transform; }
   .entry.flipping { transition: transform 0.55s cubic-bezier(0.34, 1.3, 0.64, 1); }
 
+  /* ── My Team highlight ── */
+  .entry.my-team {
+    border-color: rgba(200,169,81,0.6) !important;
+    background: linear-gradient(135deg, #151f32 0%, rgba(200,169,81,0.1) 100%) !important;
+  }
+  .entry.my-team::after {
+    content: 'MY TEAM';
+    position: absolute;
+    top: 10px; right: 12px;
+    font-family: 'DM Mono', monospace;
+    font-size: 8px;
+    letter-spacing: 0.15em;
+    color: var(--rbc-gold);
+    opacity: 0.7;
+  }
+
+  /* ── My Team selector bar ── */
+  .my-team-bar {
+    position: relative;
+    z-index: 1;
+    max-width: 680px;
+    margin: 0 auto 0.75rem;
+    padding: 0 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .my-team-bar select {
+    flex: 1;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(200,169,81,0.3);
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: #fff;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    outline: none;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  .my-team-bar select option { background: #111827; color: #fff; }
+
+  .my-team-bar label {
+    font-size: 11px;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.1em;
+    color: var(--rbc-sub);
+    white-space: nowrap;
+  }
+
+  .btn-clear-team {
+    background: none;
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 6px;
+    color: var(--rbc-sub);
+    font-size: 11px;
+    padding: 6px 10px;
+    cursor: pointer;
+    white-space: nowrap;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .btn-clear-team:hover { border-color: rgba(255,255,255,0.3); color: #fff; }
+
+  /* ── Tiebreaker row in picks panel ── */
+  .tiebreaker-row {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255,255,255,0.07);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--rbc-muted);
+    font-family: 'DM Mono', monospace;
+  }
+
+  .tiebreaker-row .tb-label {
+    color: var(--rbc-sub);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    flex-shrink: 0;
+  }
+
+  .tiebreaker-row .tb-value {
+    color: rgba(255,255,255,0.75);
+    font-size: 11px;
+  }
+
+  .tiebreaker-row .tb-sep {
+    color: var(--rbc-sub);
+    margin: 0 2px;
+  }
+
   /* ── Responsive ── */
   @media (max-width: 420px) {
     .picks-row { display: none; }
@@ -729,6 +825,13 @@
 
 <!-- Leaderboard (shown after URL is set) -->
 <div class="leaderboard" id="leaderboard" style="display:none;">
+  <div class="my-team-bar" id="myTeamBar">
+    <label>MY TEAM</label>
+    <select id="myTeamSelect" onchange="setMyTeam(this.value)">
+      <option value="">— select your name —</option>
+    </select>
+    <button class="btn-clear-team" onclick="setMyTeam('')">Clear</button>
+  </div>
   <div class="section-title" id="lastUpdated">Loading…</div>
   <div id="entries"></div>
 </div>
@@ -751,6 +854,26 @@ let sheetUrl = '';
 let countdown = REFRESH_INTERVAL;
 let timer = null;
 let countdownTimer = null;
+let myTeam = localStorage.getItem('rbcMyTeam') || '';
+
+function setMyTeam(name) {
+  myTeam = name;
+  if (name) {
+    localStorage.setItem('rbcMyTeam', name);
+  } else {
+    localStorage.removeItem('rbcMyTeam');
+  }
+  document.getElementById('myTeamSelect').value = name;
+  // Re-highlight without full reload
+  document.querySelectorAll('.entry').forEach(el => {
+    el.classList.toggle('my-team', el.dataset.name === name);
+  });
+  // Scroll to my team if selected
+  if (name) {
+    const myEl = document.querySelector(`.entry[data-name="${CSS.escape(name)}"]`);
+    if (myEl) myEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+}
 
 function init() {
   const saved = localStorage.getItem(STORAGE_KEY) || DEFAULT_SHEET_URL;
@@ -901,16 +1024,24 @@ function renderLeaderboard(rows) {
     if (!name) continue;
 
     let picks = [];
+    let predWinner = '';
+    let predScore  = '';
     const rawPicks = row[7] || '';
     try {
-      if (rawPicks && rawPicks.includes('~')) {
-        picks = rawPicks.split('~').map(chunk => {
-          const parts = chunk.split('|');
+      // Format: "picks~~predWinner~~predScore"
+      const parts = rawPicks.split('~~');
+      const picksRaw = parts[0] || '';
+      predWinner = parts[1] || '';
+      predScore  = parts[2] || '';
+
+      if (picksRaw && picksRaw.includes('~')) {
+        picks = picksRaw.split('~').map(chunk => {
+          const p = chunk.split('|');
           return {
-            name:   parts[0] || '',
-            toPar:  parts[1] === 'null' || parts[1] === '' ? null : parseFloat(parts[1]),
-            thru:   parseInt(parts[2]) || 0,
-            status: parts[3] || ''
+            name:   p[0] || '',
+            toPar:  p[1] === 'null' || p[1] === '' ? null : parseFloat(p[1]),
+            thru:   parseInt(p[2]) || 0,
+            status: p[3] || ''
           };
         }).filter(p => p.name);
       }
@@ -920,7 +1051,9 @@ function renderLeaderboard(rows) {
       name,
       r1: row[2] || '', r2: row[3] || '', r3: row[4] || '', r4: row[5] || '',
       total: row[6] || '',
-      picks
+      picks,
+      predWinner,
+      predScore
     });
   }
 
@@ -949,6 +1082,18 @@ function renderLeaderboard(rows) {
   // Build new rankings map
   const newRankings = {};
   participants.forEach((p, i) => { if (p.total !== '') newRankings[p.name] = i + 1; });
+
+  // Populate My Team dropdown with current participants
+  const select = document.getElementById('myTeamSelect');
+  const currentVal = select.value;
+  select.innerHTML = '<option value="">— select your name —</option>';
+  participants.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.name;
+    opt.textContent = p.name;
+    if (p.name === myTeam) opt.selected = true;
+    select.appendChild(opt);
+  });
 
   if (isFirstRender) {
     // ── First render: build DOM with stagger animation ────────
@@ -1053,10 +1198,11 @@ function flipUpdate(container, participants, newRankings, started) {
 
 // ── Build a single entry's HTML ──────────────────────────────
 function buildEntryHTML(p, i, newRankings, started, initial, isOpen = false) {
-  const hasScore = p.total !== '' && !isNaN(parseFloat(p.total));
-  const rank     = started && hasScore ? i + 1 : '–';
-  const rankCls  = rank === 1 ? 'top1' : rank === 2 ? 'top2' : rank === 3 ? 'top3' : '';
-  const entryCls = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : '';
+  const hasScore  = p.total !== '' && !isNaN(parseFloat(p.total));
+  const rank      = started && hasScore ? i + 1 : '–';
+  const rankCls   = rank === 1 ? 'top1' : rank === 2 ? 'top2' : rank === 3 ? 'top3' : '';
+  const entryCls  = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : '';
+  const isMyTeam  = p.name === myTeam;
 
   // Movement indicator
   let movementHtml = '';
@@ -1117,9 +1263,19 @@ function buildEntryHTML(p, i, newRankings, started, initial, isOpen = false) {
     </div>`;
   }).join('');
 
+  // Tiebreaker row
+  const tbHtml = (p.predWinner || p.predScore)
+    ? `<div class="tiebreaker-row">
+        <span class="tb-label">TIEBREAKER</span>
+        <span class="tb-value">${escHtml(p.predWinner || '–')}</span>
+        <span class="tb-sep">·</span>
+        <span class="tb-value">${p.predScore ? (parseFloat(p.predScore) <= 0 ? p.predScore : '+' + p.predScore) : '–'}</span>
+      </div>`
+    : '';
+
   const animClass = initial ? 'initial' : '';
 
-  return `<div class="entry ${entryCls} ${animClass} ${isOpen ? 'is-open' : ''}"
+  return `<div class="entry ${entryCls} ${animClass} ${isOpen ? 'is-open' : ''} ${isMyTeam ? 'my-team' : ''}"
       data-name="${escHtml(p.name)}"
       onclick="toggleExpand(this)">
     <div class="rank ${rankCls}">${rank}</div>
@@ -1132,6 +1288,7 @@ function buildEntryHTML(p, i, newRankings, started, initial, isOpen = false) {
     </div>
     <div class="picks-panel ${isOpen ? 'open' : ''}">
       <div class="picks-grid">${picksHtml}</div>
+      ${tbHtml}
       <div class="expand-hint">tap to collapse</div>
     </div>
   </div>`;
