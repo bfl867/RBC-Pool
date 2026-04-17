@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>RBC Heritage Pool · Live Leaderboard</title>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
     --rbc-blue:   #003087;
@@ -22,12 +22,11 @@
   body {
     background: var(--rbc-dark);
     color: #fff;
-    font-family: 'DM Sans', sans-serif;
+    font-family: 'New Baskerville', 'BaskervilleMT', 'Baskerville Old Face', 'Baskerville', Georgia, serif;
     min-height: 100vh;
     overflow-x: hidden;
   }
 
-  /* ── Animated background ── */
   body::before {
     content: '';
     position: fixed;
@@ -39,7 +38,6 @@
     z-index: 0;
   }
 
-  /* ── Header ── */
   header {
     position: relative;
     z-index: 1;
@@ -117,7 +115,6 @@
     50% { opacity: 0.4; transform: scale(0.7); }
   }
 
-  /* ── Stats bar ── */
   .stats-bar {
     position: relative;
     z-index: 1;
@@ -137,8 +134,209 @@
     text-align: center;
   }
 
+  .stat-label {
+    font-size: 10px;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--rbc-sub);
+    margin-bottom: 4px;
+  }
 
-  /* ── Movement indicators ── */
+  .stat-value {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 24px;
+    letter-spacing: 0.05em;
+    color: var(--rbc-gold);
+  }
+
+  .leaderboard {
+    position: relative;
+    z-index: 1;
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 0 1.5rem 6rem;
+  }
+
+  .section-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--rbc-sub);
+    margin-bottom: 12px;
+  }
+
+  /* My Team bar */
+  .my-team-bar {
+    position: relative;
+    z-index: 1;
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 0.75rem;
+  }
+
+  .my-team-bar label {
+    font-size: 11px;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.1em;
+    color: var(--rbc-sub);
+    white-space: nowrap;
+  }
+
+  .my-team-bar select {
+    flex: 1;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(200,169,81,0.3);
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: #fff;
+    font-family: 'New Baskerville', 'BaskervilleMT', 'Baskerville Old Face', 'Baskerville', Georgia, serif;
+    font-size: 13px;
+    outline: none;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  .my-team-bar select option { background: #111827; color: #fff; }
+
+  .btn-clear-team {
+    background: none;
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 6px;
+    color: var(--rbc-sub);
+    font-size: 11px;
+    padding: 6px 10px;
+    cursor: pointer;
+    white-space: nowrap;
+    font-family: 'New Baskerville', 'BaskervilleMT', 'Baskerville Old Face', 'Baskerville', Georgia, serif;
+  }
+
+  .btn-clear-team:hover { border-color: rgba(255,255,255,0.3); color: #fff; }
+
+  .entry {
+    background: var(--rbc-card);
+    border: 1px solid var(--rbc-border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 8px;
+    display: grid;
+    grid-template-columns: 36px 1fr auto;
+    gap: 0 14px;
+    align-items: center;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    will-change: transform;
+  }
+
+  .entry:hover { border-color: rgba(200,169,81,0.4); background: #151f32; }
+
+  .entry.rank-1 {
+    border-color: rgba(200,169,81,0.5);
+    background: linear-gradient(135deg, #151f32 0%, rgba(200,169,81,0.07) 100%);
+  }
+
+  .entry.rank-1::before, .entry.rank-2::before, .entry.rank-3::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    border-radius: 12px 0 0 12px;
+  }
+
+  .entry.rank-1::before { background: var(--rbc-gold); }
+  .entry.rank-2::before { background: rgba(200,169,81,0.4); }
+  .entry.rank-3::before { background: rgba(200,169,81,0.2); }
+
+  /* My Team highlight */
+  .entry.my-team {
+    border-color: rgba(200,169,81,0.6) !important;
+    background: linear-gradient(135deg, #151f32 0%, rgba(200,169,81,0.1) 100%) !important;
+  }
+
+  .entry.my-team::after {
+    content: 'MY TEAM';
+    position: absolute;
+    top: 10px; right: 12px;
+    font-family: 'DM Mono', monospace;
+    font-size: 8px;
+    letter-spacing: 0.15em;
+    color: var(--rbc-gold);
+    opacity: 0.7;
+  }
+
+  .rank {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    letter-spacing: 0.03em;
+    background: rgba(255,255,255,0.05);
+    color: var(--rbc-muted);
+  }
+
+  .rank.top1 { background: rgba(200,169,81,0.2); color: var(--rbc-gold); }
+  .rank.top2 { background: rgba(200,169,81,0.12); color: rgba(200,169,81,0.75); }
+  .rank.top3 { background: rgba(200,169,81,0.08); color: rgba(200,169,81,0.55); }
+
+  .info { min-width: 0; }
+
+  .participant-name {
+    font-size: 15px;
+    font-weight: 500;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 4px;
+  }
+
+  .score-area { text-align: right; }
+
+  .total-score {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    color: #fff;
+  }
+
+  .entry.rank-1 .total-score { color: var(--rbc-gold); }
+
+  .round-scores {
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+    margin-top: 4px;
+  }
+
+  .round-pill {
+    font-size: 10px;
+    font-family: 'DM Mono', monospace;
+    color: var(--rbc-sub);
+    background: rgba(255,255,255,0.05);
+    border-radius: 4px;
+    padding: 2px 5px;
+    min-width: 22px;
+    text-align: center;
+  }
+
+  .round-pill.has-score {
+    color: rgba(255,255,255,0.65);
+    background: rgba(255,255,255,0.08);
+  }
+
+  /* Movement indicators */
   .movement {
     display: inline-flex;
     align-items: center;
@@ -153,9 +351,8 @@
   }
   .movement.up   { background: rgba(74,222,128,0.15); color: #4ade80; }
   .movement.down { background: rgba(248,113,113,0.15); color: #f87171; }
-  .movement.same { display: none; }
 
-  /* ── Expandable picks panel ── */
+  /* Expandable picks panel */
   .picks-panel {
     display: none;
     margin-top: 10px;
@@ -230,15 +427,21 @@
     flex-shrink: 0;
   }
 
-  .tier-label {
-    font-size: 9px;
+  .tiebreaker-row {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255,255,255,0.07);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--rbc-muted);
     font-family: 'DM Mono', monospace;
-    color: var(--rbc-sub);
-    background: rgba(255,255,255,0.05);
-    border-radius: 3px;
-    padding: 1px 4px;
-    flex-shrink: 0;
   }
+
+  .tiebreaker-row .tb-label { color: var(--rbc-sub); font-size: 10px; letter-spacing: 0.08em; flex-shrink: 0; }
+  .tiebreaker-row .tb-value { color: rgba(255,255,255,0.75); font-size: 11px; }
+  .tiebreaker-row .tb-sep   { color: var(--rbc-sub); margin: 0 2px; }
 
   .expand-hint {
     font-size: 10px;
@@ -250,204 +453,12 @@
   }
 
   .entry { cursor: pointer; }
-  .entry:active { transform: scale(0.995); }
 
-  /* Make entry a proper grid so picks-panel can span full width */
-  .entry {
-    display: grid;
-    grid-template-columns: 36px 1fr auto;
-    gap: 0 14px;
-    align-items: center;
-  }
-
-  /* Override entry to allow panel to expand below */
-  .entry-inner {
-    display: contents;
-  }
-
-  .stat-label {
-    font-size: 10px;
-    font-family: 'DM Mono', monospace;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--rbc-sub);
-    margin-bottom: 4px;
-  }
-
-  .stat-value {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 24px;
-    letter-spacing: 0.05em;
-    color: var(--rbc-gold);
-  }
-
-  /* ── Leaderboard ── */
-  .leaderboard {
-    position: relative;
-    z-index: 1;
-    max-width: 680px;
-    margin: 0 auto;
-    padding: 0 1.5rem 6rem;
-  }
-
-  .section-title {
-    font-family: 'DM Mono', monospace;
-    font-size: 10px;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--rbc-sub);
-    margin-bottom: 12px;
-  }
-
-  .entry {
-    background: var(--rbc-card);
-    border: 1px solid var(--rbc-border);
-    border-radius: 12px;
-    padding: 14px 16px;
-    margin-bottom: 8px;
-    display: grid;
-    grid-template-columns: 36px 1fr auto;
-    gap: 0 14px;
-    align-items: center;
-    transition: border-color 0.2s, background 0.2s;
-    cursor: default;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .entry:hover {
-    border-color: rgba(200,169,81,0.4);
-    background: #151f32;
-  }
-
-  /* Gold shimmer on leader */
-  .entry.rank-1 {
-    border-color: rgba(200,169,81,0.5);
-    background: linear-gradient(135deg, #151f32 0%, rgba(200,169,81,0.07) 100%);
-  }
-
-  .entry.rank-1::before {
-    content: '';
-    position: absolute;
-    left: 0; top: 0; bottom: 0;
-    width: 3px;
-    background: var(--rbc-gold);
-    border-radius: 12px 0 0 12px;
-  }
-
-  .entry.rank-2::before, .entry.rank-3::before {
-    content: '';
-    position: absolute;
-    left: 0; top: 0; bottom: 0;
-    width: 3px;
-    background: rgba(200,169,81,0.4);
-    border-radius: 12px 0 0 12px;
-  }
-
-  /* Rank badge */
-  .rank {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    border-radius: 8px;
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 18px;
-    letter-spacing: 0.03em;
-    background: rgba(255,255,255,0.05);
-    color: var(--rbc-muted);
-  }
-
-  .rank.top1 { background: rgba(200,169,81,0.2); color: var(--rbc-gold); }
-  .rank.top2 { background: rgba(200,169,81,0.12); color: rgba(200,169,81,0.75); }
-  .rank.top3 { background: rgba(200,169,81,0.08); color: rgba(200,169,81,0.55); }
-
-  /* Participant info */
-  .info { min-width: 0; }
-
-  .participant-name {
-    font-size: 15px;
-    font-weight: 500;
-    color: #fff;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    margin-bottom: 4px;
-  }
-
-  .picks-row {
-    display: flex;
-    gap: 5px;
-    flex-wrap: wrap;
-  }
-
-  .pick-chip {
-    font-size: 10px;
-    font-family: 'DM Mono', monospace;
-    color: var(--rbc-sub);
-    background: rgba(255,255,255,0.05);
-    border-radius: 4px;
-    padding: 2px 6px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 90px;
-  }
-
-  /* Score area */
-  .score-area { text-align: right; }
-
-  .total-score {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 28px;
-    letter-spacing: 0.04em;
-    line-height: 1;
-    color: #fff;
-  }
-
-  .entry.rank-1 .total-score { color: var(--rbc-gold); }
-
-  .round-scores {
-    display: flex;
-    gap: 6px;
-    justify-content: flex-end;
-    margin-top: 4px;
-  }
-
-  .round-pill {
-    font-size: 10px;
-    font-family: 'DM Mono', monospace;
-    color: var(--rbc-sub);
-    background: rgba(255,255,255,0.05);
-    border-radius: 4px;
-    padding: 2px 5px;
-    min-width: 22px;
-    text-align: center;
-  }
-
-  .round-pill.has-score {
-    color: rgba(255,255,255,0.65);
-    background: rgba(255,255,255,0.08);
-  }
-
-  /* ── Loading / empty state ── */
-  .state-panel {
-    text-align: center;
-    padding: 3rem 1.5rem;
-    color: var(--rbc-muted);
-  }
-
-  .state-panel .icon {
-    font-size: 36px;
-    margin-bottom: 12px;
-    opacity: 0.6;
-  }
-
+  /* Loading */
+  .state-panel { text-align: center; padding: 3rem 1.5rem; color: var(--rbc-muted); }
   .state-panel p { font-size: 14px; line-height: 1.6; max-width: 300px; margin: 0 auto; }
   .state-panel .hint { font-size: 12px; color: var(--rbc-sub); margin-top: 8px; }
 
-  /* Skeleton loader */
   .skeleton {
     background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
     background-size: 200% 100%;
@@ -473,14 +484,8 @@
     align-items: center;
   }
 
-  /* ── Setup panel ── */
-  .setup-panel {
-    position: relative;
-    z-index: 1;
-    max-width: 680px;
-    margin: 0 auto;
-    padding: 0 1.5rem;
-  }
+  /* Setup panel */
+  .setup-panel { position: relative; z-index: 1; max-width: 680px; margin: 0 auto; padding: 0 1.5rem; }
 
   .setup-card {
     background: var(--rbc-card);
@@ -498,21 +503,9 @@
     margin-bottom: 10px;
   }
 
-  .setup-card p {
-    font-size: 13px;
-    color: var(--rbc-muted);
-    line-height: 1.6;
-    margin-bottom: 14px;
-  }
+  .setup-card p { font-size: 13px; color: var(--rbc-muted); line-height: 1.6; margin-bottom: 14px; }
 
-  .setup-card ol {
-    font-size: 13px;
-    color: var(--rbc-muted);
-    line-height: 1.8;
-    padding-left: 18px;
-    margin-bottom: 16px;
-  }
-
+  .setup-card ol { font-size: 13px; color: var(--rbc-muted); line-height: 1.8; padding-left: 18px; margin-bottom: 16px; }
   .setup-card ol li { margin-bottom: 4px; }
   .setup-card ol li code {
     font-family: 'DM Mono', monospace;
@@ -523,11 +516,7 @@
     color: rgba(255,255,255,0.8);
   }
 
-  .url-input-wrap {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
+  .url-input-wrap { display: flex; gap: 8px; flex-wrap: wrap; }
 
   .url-input-wrap input {
     flex: 1;
@@ -540,7 +529,6 @@
     font-family: 'DM Mono', monospace;
     font-size: 12px;
     outline: none;
-    transition: border-color 0.2s;
   }
 
   .url-input-wrap input:focus { border-color: var(--rbc-gold); }
@@ -552,24 +540,17 @@
     border: none;
     border-radius: 8px;
     padding: 10px 20px;
-    font-family: 'DM Sans', sans-serif;
+    font-family: 'New Baskerville', 'BaskervilleMT', 'Baskerville Old Face', 'Baskerville', Georgia, serif;
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
-    transition: opacity 0.2s;
-    white-space: nowrap;
   }
 
   .btn-load:hover { opacity: 0.88; }
 
-  .error-msg {
-    margin-top: 10px;
-    font-size: 12px;
-    color: #f87171;
-    display: none;
-  }
+  .error-msg { margin-top: 10px; font-size: 12px; color: #f87171; display: none; }
 
-  /* ── Footer ── */
+  /* Footer */
   footer {
     position: fixed;
     bottom: 0; left: 0; right: 0;
@@ -599,7 +580,7 @@
     background: none;
     border: none;
     color: var(--rbc-gold);
-    font-family: 'DM Sans', sans-serif;
+    font-family: 'New Baskerville', 'BaskervilleMT', 'Baskerville Old Face', 'Baskerville', Georgia, serif;
     font-size: 12px;
     font-weight: 500;
     cursor: pointer;
@@ -616,8 +597,7 @@
     min-width: 28px;
   }
 
-  /* ── Animations ── */
-  /* Initial load stagger */
+  /* Animations */
   .entry.initial { animation: fadeUp 0.35s ease both; }
   @keyframes fadeUp {
     from { opacity: 0; transform: translateY(10px); }
@@ -634,134 +614,21 @@
   .entry.initial:nth-child(9)  { animation-delay: 0.32s; }
   .entry.initial:nth-child(10) { animation-delay: 0.36s; }
 
-  /* Score flash when value changes */
-  @keyframes scoreFlash {
-    0%   { opacity: 1; }
-    25%  { opacity: 0.2; transform: scale(0.92); }
-    100% { opacity: 1; transform: scale(1); }
-  }
-  .score-flash { animation: scoreFlash 0.5s ease; }
-
-  /* Score improved (went more negative) */
   @keyframes scoreBetter {
     0%   { color: #4ade80; transform: scale(1.15); }
     100% { transform: scale(1); }
   }
-  .score-better { animation: scoreBetter 0.6s ease; }
-
-  /* Score worsened (went more positive) */
   @keyframes scoreWorse {
     0%   { color: #f87171; transform: scale(1.15); }
     100% { transform: scale(1); }
   }
-  .score-worse { animation: scoreWorse 0.6s ease; }
-
-  /* FLIP transition for position changes */
-  .entry { transition: none; will-change: transform; }
+  .score-better { animation: scoreBetter 0.6s ease; }
+  .score-worse  { animation: scoreWorse  0.6s ease; }
   .entry.flipping { transition: transform 0.55s cubic-bezier(0.34, 1.3, 0.64, 1); }
 
-  /* ── My Team highlight ── */
-  .entry.my-team {
-    border-color: rgba(200,169,81,0.6) !important;
-    background: linear-gradient(135deg, #151f32 0%, rgba(200,169,81,0.1) 100%) !important;
-  }
-  .entry.my-team::after {
-    content: 'MY TEAM';
-    position: absolute;
-    top: 10px; right: 12px;
-    font-family: 'DM Mono', monospace;
-    font-size: 8px;
-    letter-spacing: 0.15em;
-    color: var(--rbc-gold);
-    opacity: 0.7;
-  }
-
-  /* ── My Team selector bar ── */
-  .my-team-bar {
-    position: relative;
-    z-index: 1;
-    max-width: 680px;
-    margin: 0 auto 0.75rem;
-    padding: 0 1.5rem;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .my-team-bar select {
-    flex: 1;
-    background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(200,169,81,0.3);
-    border-radius: 8px;
-    padding: 8px 12px;
-    color: #fff;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 13px;
-    outline: none;
-    cursor: pointer;
-    appearance: none;
-    -webkit-appearance: none;
-  }
-
-  .my-team-bar select option { background: #111827; color: #fff; }
-
-  .my-team-bar label {
-    font-size: 11px;
-    font-family: 'DM Mono', monospace;
-    letter-spacing: 0.1em;
-    color: var(--rbc-sub);
-    white-space: nowrap;
-  }
-
-  .btn-clear-team {
-    background: none;
-    border: 1px solid rgba(255,255,255,0.15);
-    border-radius: 6px;
-    color: var(--rbc-sub);
-    font-size: 11px;
-    padding: 6px 10px;
-    cursor: pointer;
-    white-space: nowrap;
-    font-family: 'DM Sans', sans-serif;
-  }
-  .btn-clear-team:hover { border-color: rgba(255,255,255,0.3); color: #fff; }
-
-  /* ── Tiebreaker row in picks panel ── */
-  .tiebreaker-row {
-    margin-top: 8px;
-    padding-top: 8px;
-    border-top: 1px solid rgba(255,255,255,0.07);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 11px;
-    color: var(--rbc-muted);
-    font-family: 'DM Mono', monospace;
-  }
-
-  .tiebreaker-row .tb-label {
-    color: var(--rbc-sub);
-    font-size: 10px;
-    letter-spacing: 0.08em;
-    flex-shrink: 0;
-  }
-
-  .tiebreaker-row .tb-value {
-    color: rgba(255,255,255,0.75);
-    font-size: 11px;
-  }
-
-  .tiebreaker-row .tb-sep {
-    color: var(--rbc-sub);
-    margin: 0 2px;
-  }
-
-  /* ── Responsive ── */
   @media (max-width: 420px) {
-    .picks-row { display: none; }
-    .pick-chip  { display: none; }
     header { padding: 1.25rem 1rem 1rem; }
-    .leaderboard, .setup-panel, .stats-bar { padding-left: 1rem; padding-right: 1rem; }
+    .leaderboard, .setup-panel, .stats-bar, .my-team-bar { padding-left: 1rem; padding-right: 1rem; }
   }
 </style>
 </head>
@@ -800,7 +667,6 @@
   </div>
 </div>
 
-<!-- Setup panel (shown until URL is configured) -->
 <div class="setup-panel" id="setupPanel">
   <div class="setup-card">
     <h2>Connect Your Sheet</h2>
@@ -819,11 +685,10 @@
   </div>
   <div class="setup-card" style="border-style: dashed; opacity: 0.6;">
     <h2>Share This Page</h2>
-    <p>Once connected, bookmark this page and share the URL with your pool participants. The leaderboard auto-refreshes every 60 seconds — no login required.</p>
+    <p>Once connected, bookmark this page and share the URL with your pool participants. The leaderboard auto-refreshes every 30 seconds — no login required.</p>
   </div>
 </div>
 
-<!-- Leaderboard (shown after URL is set) -->
 <div class="leaderboard" id="leaderboard" style="display:none;">
   <div class="my-team-bar" id="myTeamBar">
     <label>MY TEAM</label>
