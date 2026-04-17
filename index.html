@@ -137,6 +137,134 @@
     text-align: center;
   }
 
+
+  /* ── Movement indicators ── */
+  .movement {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 10px;
+    font-family: 'DM Mono', monospace;
+    font-weight: 500;
+    padding: 1px 5px;
+    border-radius: 4px;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+  .movement.up   { background: rgba(74,222,128,0.15); color: #4ade80; }
+  .movement.down { background: rgba(248,113,113,0.15); color: #f87171; }
+  .movement.same { display: none; }
+
+  /* ── Expandable picks panel ── */
+  .picks-panel {
+    display: none;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255,255,255,0.07);
+    grid-column: 1 / -1;
+  }
+
+  .picks-panel.open { display: block; }
+
+  .picks-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+
+  .pick-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(255,255,255,0.04);
+    border-radius: 6px;
+    padding: 6px 10px;
+    gap: 8px;
+  }
+
+  .pick-row.counting {
+    background: rgba(200,169,81,0.08);
+    border: 1px solid rgba(200,169,81,0.2);
+  }
+
+  .pick-name {
+    font-size: 12px;
+    color: rgba(255,255,255,0.7);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .pick-name.counting { color: #fff; font-weight: 500; }
+
+  .pick-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .pick-score {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    min-width: 28px;
+    text-align: right;
+  }
+
+  .pick-thru {
+    font-size: 10px;
+    color: var(--rbc-sub);
+    font-family: 'DM Mono', monospace;
+    min-width: 32px;
+    text-align: right;
+  }
+
+  .pick-live-dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--rbc-gold);
+    animation: pulse 1.6s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+
+  .tier-label {
+    font-size: 9px;
+    font-family: 'DM Mono', monospace;
+    color: var(--rbc-sub);
+    background: rgba(255,255,255,0.05);
+    border-radius: 3px;
+    padding: 1px 4px;
+    flex-shrink: 0;
+  }
+
+  .expand-hint {
+    font-size: 10px;
+    color: var(--rbc-sub);
+    font-family: 'DM Mono', monospace;
+    margin-top: 4px;
+    text-align: center;
+    letter-spacing: 0.05em;
+  }
+
+  .entry { cursor: pointer; }
+  .entry:active { transform: scale(0.995); }
+
+  /* Make entry a proper grid so picks-panel can span full width */
+  .entry {
+    display: grid;
+    grid-template-columns: 36px 1fr auto;
+    gap: 0 14px;
+    align-items: center;
+  }
+
+  /* Override entry to allow panel to expand below */
+  .entry-inner {
+    display: contents;
+  }
+
   .stat-label {
     font-size: 10px;
     font-family: 'DM Mono', monospace;
@@ -709,15 +837,21 @@ function parseCSV(text) {
 }
 
 
-// Sheet LIVE col = sum of best 4 individual player to-par scores (already computed)
-// R1-R4 cols = per-round to-par totals
-// Dashboard just formats and displays — no par math needed here
+// Previous rankings for movement indicators
+let prevRankings = {};
 
 function formatToPar(val) {
   if (val === '' || val === null || isNaN(parseFloat(val))) return '–';
   const n = parseFloat(val);
   if (n === 0) return 'E';
   return n > 0 ? '+' + n : String(n);
+}
+
+function scoreColor(val) {
+  const s = formatToPar(val);
+  if (s === '–') return '';
+  if (s === 'E') return 'color:var(--rbc-gold)';
+  return s.startsWith('+') ? 'color:#f87171' : 'color:#4ade80';
 }
 
 function countRounds(r1, r2, r3, r4) {
@@ -732,16 +866,22 @@ function renderLeaderboard(rows) {
     }
   }
 
+  // Columns: 0=rank,1=name,2=R1,3=R2,4=R3,5=R4,6=total,7=status,8=picksJSON
   const participants = [];
   for (let i = dataStart; i < rows.length; i++) {
     const row = rows[i];
     const name = (row[1] || '').trim();
     if (!name) continue;
+
+    let picks = [];
+    try { picks = JSON.parse(row[8] || '[]'); } catch(e) {}
+
     participants.push({
       name,
       r1: row[2] || '', r2: row[3] || '', r3: row[4] || '', r4: row[5] || '',
       total: row[6] || '',
-      status: row[7] || ''
+      status: row[7] || '',
+      picks
     });
   }
 
@@ -754,7 +894,6 @@ function renderLeaderboard(rows) {
   });
 
   const entries = document.getElementById('entries');
-
   if (participants.length === 0) {
     entries.innerHTML = `<div class="state-panel">
       <div class="icon">🏌️</div><p>No participant data yet.</p>
@@ -768,16 +907,37 @@ function renderLeaderboard(rows) {
   const active  = participants.filter(p => p.total !== '' && !isNaN(parseFloat(p.total)));
   const started = active.length > 0;
 
+  // Build new rankings map
+  const newRankings = {};
+  participants.forEach((p, i) => { if (p.total !== '') newRankings[p.name] = i + 1; });
+
+  // Preserve expanded state
+  const expanded = new Set();
+  entries.querySelectorAll('.entry.is-open').forEach(el => {
+    expanded.add(el.dataset.name);
+  });
+
   entries.innerHTML = participants.map((p, i) => {
     const hasScore = p.total !== '' && !isNaN(parseFloat(p.total));
     const rank     = started && hasScore ? i + 1 : '–';
     const rankCls  = rank === 1 ? 'top1' : rank === 2 ? 'top2' : rank === 3 ? 'top3' : '';
     const entryCls = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : '';
 
+    // Movement indicator
+    let movementHtml = '';
+    if (hasScore && prevRankings[p.name] !== undefined) {
+      const prev = prevRankings[p.name];
+      const curr = rank;
+      const diff = prev - curr; // positive = moved up
+      if (diff > 0) {
+        movementHtml = `<span class="movement up">▲${diff}</span>`;
+      } else if (diff < 0) {
+        movementHtml = `<span class="movement down">▼${Math.abs(diff)}</span>`;
+      }
+    }
+
     const parScore   = formatToPar(p.total);
-    const scoreColor = parScore === '–' ? '' :
-      parScore === 'E'         ? 'color:var(--rbc-gold);'  :
-      parScore.startsWith('+') ? 'color:#f87171;'          : 'color:#4ade80;';
+    const scoreCol   = scoreColor(p.total);
 
     const roundPills = [
       {l:'R1',v:p.r1},{l:'R2',v:p.r2},{l:'R3',v:p.r3},{l:'R4',v:p.r4}
@@ -800,23 +960,70 @@ function renderLeaderboard(rows) {
       ? `<span style="font-size:10px;color:var(--rbc-sub);margin-left:4px;">thru R${completed}</span>`
       : '';
 
-    return `<div class="entry ${entryCls}" style="animation-delay:${Math.min(i*0.03,0.3)}s">
+    // Picks panel — sort picks by toPar, mark top 4 as counting
+    const sortedPicks = [...p.picks]
+      .filter(pk => pk.name)
+      .sort((a, b) => {
+        if (a.toPar === null && b.toPar === null) return 0;
+        if (a.toPar === null) return 1;
+        if (b.toPar === null) return -1;
+        return a.toPar - b.toPar;
+      });
+
+    const picksHtml = sortedPicks.map((pk, pi) => {
+      const isCounting = pi < 4 && pk.toPar !== null;
+      const pScore     = formatToPar(pk.toPar);
+      const pCol       = scoreColor(pk.toPar);
+      const isLive     = pk.status && pk.status.includes('active');
+      const thru       = pk.thru > 0 ? `T${pk.thru}` : pk.status && pk.status.includes('finish') ? 'F' : '–';
+      const lastName   = pk.name.split(' ').pop();
+
+      return `<div class="pick-row ${isCounting ? 'counting' : ''}">
+        <span class="pick-name ${isCounting ? 'counting' : ''}">${escHtml(lastName)}</span>
+        <div class="pick-meta">
+          ${isLive ? '<div class="pick-live-dot"></div>' : ''}
+          <span class="pick-thru">${escHtml(thru)}</span>
+          <span class="pick-score" style="${pCol}">${escHtml(pScore)}</span>
+        </div>
+      </div>`;
+    }).join('');
+
+    const isOpen = expanded.has(p.name);
+
+    return `<div class="entry ${entryCls} ${isOpen ? 'is-open' : ''}"
+        data-name="${escHtml(p.name)}"
+        style="animation-delay:${Math.min(i*0.03,0.3)}s"
+        onclick="toggleExpand(this)">
       <div class="rank ${rankCls}">${rank}</div>
       <div class="info">
-        <div class="participant-name">${escHtml(p.name)}${liveBadge}${thruLabel}</div>
+        <div class="participant-name">${escHtml(p.name)}${movementHtml}${liveBadge}${thruLabel}</div>
         <div class="round-scores">${roundPills}</div>
       </div>
       <div class="score-area">
-        <div class="total-score" style="${scoreColor}">${escHtml(parScore)}</div>
+        <div class="total-score" style="${scoreCol}">${escHtml(parScore)}</div>
+      </div>
+      <div class="picks-panel ${isOpen ? 'open' : ''}">
+        <div class="picks-grid">${picksHtml}</div>
+        <div class="expand-hint">tap to collapse</div>
       </div>
     </div>`;
   }).join('');
+
+  // Update previous rankings for next refresh
+  prevRankings = newRankings;
 
   updateStats(participants.length, formatToPar(active[0] ? active[0].total : ''), participants.length * 25);
 
   const now = new Date();
   document.getElementById('lastUpdated').textContent =
     `Last updated · ${now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'})}`;
+}
+
+function toggleExpand(el) {
+  const panel = el.querySelector('.picks-panel');
+  const isOpen = el.classList.contains('is-open');
+  el.classList.toggle('is-open', !isOpen);
+  panel.classList.toggle('open', !isOpen);
 }
 
 function updateStats(entries, score, pot) {
